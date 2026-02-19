@@ -32,7 +32,7 @@ fi
 REPO_ROOT="$(git -C "${SCRIPT_DIR}" rev-parse --show-toplevel 2>/dev/null || (cd "${SCRIPT_DIR}/.." && pwd))"
 cd "${REPO_ROOT}"
 mkdir -p logs
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True,max_split_size_mb:256
 
 # Defaults can be overridden at submit time, e.g.:
 # sbatch --export=ALL,NUM_SHARDS=8,SHARD_ID=0 scripts/run_llava_onevision_baseline_stage1.sbatch
@@ -43,12 +43,13 @@ IMAGE_FOLDER="${IMAGE_FOLDER:-/datasets/work/dss-deepfake-audio/work/data/datase
 SYSTEM_FILE="${SYSTEM_FILE:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_prompts/baseline_system.txt}"
 USER_TEMPLATE_FILE="${USER_TEMPLATE_FILE:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_prompts/baseline_user.txt}"
 OUTPUT_DIR="${OUTPUT_DIR:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_strongVLM/}"
-OUTPUT_JSONL="${OUTPUT_JSONL:-${OUTPUT_DIR%/}/llava_onevision_outputs.jsonl}"
 
 # Default to fp16 to avoid bf16/fp16 mismatch issues in some environments.
 DTYPE="${DTYPE:-float16}"
 DEVICE_MAP="${DEVICE_MAP:-auto}"
-MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-200}"
+MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-128}"
+IMAGE_MAX_SIDE="${IMAGE_MAX_SIDE:-896}"
+LOAD_IN_4BIT="${LOAD_IN_4BIT:-0}"
 DO_SAMPLE="${DO_SAMPLE:-0}"
 TEMPERATURE="${TEMPERATURE:-0.7}"
 TOP_P="${TOP_P:-0.9}"
@@ -59,6 +60,11 @@ if [[ -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then
   SHARD_ID="${SHARD_ID:-${SLURM_ARRAY_TASK_ID}}"
 else
   SHARD_ID="${SHARD_ID:-0}"
+fi
+if [[ "${NUM_SHARDS}" -gt 1 ]]; then
+  OUTPUT_JSONL="${OUTPUT_JSONL:-${OUTPUT_DIR%/}/llava_onevision_outputs_shard_${SHARD_ID}.jsonl}"
+else
+  OUTPUT_JSONL="${OUTPUT_JSONL:-${OUTPUT_DIR%/}/llava_onevision_outputs.jsonl}"
 fi
 
 CMD=(
@@ -74,6 +80,7 @@ CMD=(
   --dtype "${DTYPE}"
   --device-map "${DEVICE_MAP}"
   --max-new-tokens "${MAX_NEW_TOKENS}"
+  --image-max-side "${IMAGE_MAX_SIDE}"
   --num-shards "${NUM_SHARDS}"
   --shard-id "${SHARD_ID}"
 )
@@ -84,6 +91,9 @@ fi
 
 if [[ -n "${ATTN_IMPL}" ]]; then
   CMD+=(--attn-implementation "${ATTN_IMPL}")
+fi
+if [[ "${LOAD_IN_4BIT}" == "1" ]]; then
+  CMD+=(--load-in-4bit)
 fi
 
 echo "[info] running command:"

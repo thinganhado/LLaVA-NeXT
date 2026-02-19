@@ -198,8 +198,16 @@ def _discover_items(args: argparse.Namespace):
     return _discover_items_from_csv(args)
 
 
-def _build_messages(system_prompt: str, user_prompt: str, item: dict):
+def _build_messages(system_prompt: str, user_prompt: str, item: dict, image_max_side: int):
     image = Image.open(item["img_path"]).convert("RGB")
+    if image_max_side > 0:
+        w, h = image.size
+        longest = max(w, h)
+        if longest > image_max_side:
+            scale = float(image_max_side) / float(longest)
+            new_w = max(1, int(round(w * scale)))
+            new_h = max(1, int(round(h * scale)))
+            image = image.resize((new_w, new_h), Image.BICUBIC)
     messages = [
         {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
         {
@@ -286,7 +294,9 @@ def parse_args():
     parser.add_argument("--device-map", default="auto", help="Transformers device_map.")
     parser.add_argument("--dtype", default="float16", help="Model dtype: auto, float16, bfloat16, float32.")
     parser.add_argument("--attn-implementation", default=None, help="Optional attention impl (e.g., flash_attention_2).")
-    parser.add_argument("--max-new-tokens", type=int, default=200)
+    parser.add_argument("--max-new-tokens", type=int, default=128)
+    parser.add_argument("--image-max-side", type=int, default=896, help="Downscale input image longest side before inference. <=0 disables.")
+    parser.add_argument("--load-in-4bit", action="store_true", help="Enable 4-bit bitsandbytes quantized loading.")
     parser.add_argument("--do-sample", action="store_true", help="Enable sampling.")
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--top-p", type=float, default=0.9)
@@ -338,11 +348,12 @@ def main():
     print(f"[image_folder] {args.image_folder}")
 
     torch_dtype = _resolve_torch_dtype(args.dtype)
-    model_kwargs = {
-        "torch_dtype": torch_dtype,
-        "device_map": args.device_map,
-        "trust_remote_code": True,
-    }
+    model_kwargs = {"device_map": args.device_map, "trust_remote_code": True}
+    if args.load_in_4bit:
+        model_kwargs["load_in_4bit"] = True
+    else:
+        # Prefer `dtype` on newer Transformers to avoid deprecation warnings.
+        model_kwargs["dtype"] = torch_dtype
     if args.attn_implementation:
         model_kwargs["attn_implementation"] = args.attn_implementation
 
@@ -356,7 +367,7 @@ def main():
     mode = "w" if args.overwrite else "a"
     with output_jsonl.open(mode, encoding="utf-8", buffering=1) as jsonl_fp:
         for idx, item in enumerate(items, start=1):
-            messages = _build_messages(system_prompt, user_prompt, item)
+            messages = _build_messages(system_prompt, user_prompt, item, args.image_max_side)
             if args.print_messages:
                 print(messages)
 
