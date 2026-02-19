@@ -284,7 +284,7 @@ def parse_args():
     parser.add_argument("--shard-id", type=int, default=0, help="Shard index in [0, num_shards).")
 
     parser.add_argument("--device-map", default="auto", help="Transformers device_map.")
-    parser.add_argument("--dtype", default="auto", help="Model dtype: auto, float16, bfloat16, float32.")
+    parser.add_argument("--dtype", default="float16", help="Model dtype: auto, float16, bfloat16, float32.")
     parser.add_argument("--attn-implementation", default=None, help="Optional attention impl (e.g., flash_attention_2).")
     parser.add_argument("--max-new-tokens", type=int, default=200)
     parser.add_argument("--do-sample", action="store_true", help="Enable sampling.")
@@ -347,6 +347,10 @@ def main():
         model_kwargs["attn_implementation"] = args.attn_implementation
 
     model = AutoModelForImageTextToText.from_pretrained(args.model_id, **model_kwargs)
+    # Some checkpoints can mix bf16 activations with fp16 lm_head under auto mapping.
+    # Force lm_head dtype to align with the selected compute dtype to avoid matmul mismatch.
+    if torch_dtype != "auto" and hasattr(model, "lm_head"):
+        model.lm_head = model.lm_head.to(dtype=torch_dtype)
     processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=True)
 
     mode = "w" if args.overwrite else "a"
