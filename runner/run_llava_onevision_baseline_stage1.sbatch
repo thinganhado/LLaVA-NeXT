@@ -67,8 +67,18 @@ else
   OUTPUT_JSONL="${OUTPUT_JSONL:-${OUTPUT_DIR%/}/llava_onevision_outputs.jsonl}"
 fi
 
+RUNNER_PY=""
+if [[ -f "${REPO_ROOT}/runner/llava_onevision_baseline_runner.py" ]]; then
+  RUNNER_PY="${REPO_ROOT}/runner/llava_onevision_baseline_runner.py"
+elif [[ -f "${REPO_ROOT}/scripts/llava_onevision_baseline_runner.py" ]]; then
+  RUNNER_PY="${REPO_ROOT}/scripts/llava_onevision_baseline_runner.py"
+else
+  echo "[ERR] Cannot find llava_onevision_baseline_runner.py under runner/ or scripts/ in ${REPO_ROOT}" >&2
+  exit 1
+fi
+
 CMD=(
-  python runner/llava_onevision_baseline_runner.py
+  python "${RUNNER_PY}"
   --model-id "${MODEL_ID}"
   --meta-json "${META_JSON}"
   --meta-csv "${META_CSV}"
