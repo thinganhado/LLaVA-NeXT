@@ -13,8 +13,14 @@ from transformers import AutoModelForImageTextToText, AutoProcessor
 
 
 THIS_DIR = Path(__file__).resolve().parent
-DEFAULT_SYSTEM_FILE = THIS_DIR / "baseline_prompts" / "baseline_system.txt"
-DEFAULT_USER_TEMPLATE_FILE = THIS_DIR / "baseline_prompts" / "baseline_user.txt"
+REPO_ROOT = THIS_DIR.parent
+
+# Prefer repo-level prompt files: <repo>/baseline_prompts/*.txt
+DEFAULT_SYSTEM_FILE = REPO_ROOT / "baseline_prompts" / "baseline_system.txt"
+DEFAULT_USER_TEMPLATE_FILE = REPO_ROOT / "baseline_prompts" / "baseline_user.txt"
+# Backward-compatible fallback: <repo>/runner/baseline_prompts/*.txt
+LEGACY_SYSTEM_FILE = THIS_DIR / "baseline_prompts" / "baseline_system.txt"
+LEGACY_USER_TEMPLATE_FILE = THIS_DIR / "baseline_prompts" / "baseline_user.txt"
 
 DEFAULT_META_CSV = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_gt.csv"
 DEFAULT_META_JSON = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_val.json"
@@ -35,6 +41,8 @@ def _resolve_system_prompt(args: argparse.Namespace) -> str:
         return _load_text_file(Path(args.system_file), "--system-file")
     if DEFAULT_SYSTEM_FILE.exists():
         return _load_text_file(DEFAULT_SYSTEM_FILE, "--system-file")
+    if LEGACY_SYSTEM_FILE.exists():
+        return _load_text_file(LEGACY_SYSTEM_FILE, "--system-file")
     return "You are a helpful language and vision assistant."
 
 
@@ -43,6 +51,8 @@ def _resolve_user_template(args: argparse.Namespace) -> str:
         return _load_text_file(Path(args.user_template_file), "--user-template-file")
     if DEFAULT_USER_TEMPLATE_FILE.exists():
         return _load_text_file(DEFAULT_USER_TEMPLATE_FILE, "--user-template-file")
+    if LEGACY_USER_TEMPLATE_FILE.exists():
+        return _load_text_file(LEGACY_USER_TEMPLATE_FILE, "--user-template-file")
     return "Please analyze this image."
 
 
