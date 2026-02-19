@@ -43,8 +43,8 @@ USER_TEMPLATE_FILE="${USER_TEMPLATE_FILE:-/datasets/work/dss-deepfake-audio/work
 OUTPUT_DIR="${OUTPUT_DIR:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_strongVLM/}"
 OUTPUT_JSONL="${OUTPUT_JSONL:-${OUTPUT_DIR%/}/llava_onevision_outputs.jsonl}"
 
-# For 72B, bf16 is generally preferred on modern GPUs.
-DTYPE="${DTYPE:-bfloat16}"
+# Default to fp16 to avoid bf16/fp16 mismatch issues in some environments.
+DTYPE="${DTYPE:-float16}"
 DEVICE_MAP="${DEVICE_MAP:-auto}"
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-200}"
 DO_SAMPLE="${DO_SAMPLE:-0}"
