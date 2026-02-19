@@ -1,4 +1,4 @@
-#!/bin/bash -l
+#!/usr/bin/env bash
 #SBATCH --job-name=llava_ov72b_stage1
 #SBATCH --partition=h24gpu
 #SBATCH --nodes=1
@@ -9,6 +9,7 @@
 #SBATCH --output=logs/llava_ov72b_stage1_%j.out
 #SBATCH --account=OD-237777
 #SBATCH --gres=gpu:4
+#SBATCH --exclusive
 
 set -euo pipefail
 
@@ -31,6 +32,7 @@ fi
 REPO_ROOT="$(git -C "${SCRIPT_DIR}" rev-parse --show-toplevel 2>/dev/null || (cd "${SCRIPT_DIR}/.." && pwd))"
 cd "${REPO_ROOT}"
 mkdir -p logs
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # Defaults can be overridden at submit time, e.g.:
 # sbatch --export=ALL,NUM_SHARDS=8,SHARD_ID=0 scripts/run_llava_onevision_baseline_stage1.sbatch
@@ -60,7 +62,7 @@ else
 fi
 
 CMD=(
-  python scripts/llava_onevision_baseline_runner.py
+  python runner/llava_onevision_baseline_runner.py
   --model-id "${MODEL_ID}"
   --meta-json "${META_JSON}"
   --meta-csv "${META_CSV}"
